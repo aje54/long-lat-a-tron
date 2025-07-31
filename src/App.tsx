@@ -6,6 +6,7 @@ import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Badge } from './components/ui/badge';
 import MapComponent from './MapComponent';
+import CoordinateList from './CoordinateList';
 
 const LandBoundaryPlotter = () => {
   const [coordinates, setCoordinates] = useState<any[]>([]);
@@ -13,7 +14,32 @@ const LandBoundaryPlotter = () => {
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const GOOGLE_MAPS_API_KEY = 'AIzaSyBeoZp5kOUEDDRT4IUmunZb4AJuXc4wXAY';
+  const [selectedCoordinate, setSelectedCoordinate] = useState<number | null>(null);
+  const [centerCoordinate, setCenterCoordinate] = useState<number | null>(null);
 
+
+  const handleCoordinateSelect = (id: number) => {
+    console.log('handleCoordinateSelect called with id:', id);
+    console.log('Current selectedCoordinate:', selectedCoordinate);
+    const newSelection = id === selectedCoordinate ? null : id;
+    console.log('Setting selectedCoordinate to:', newSelection);
+    setSelectedCoordinate(newSelection);
+  };
+  
+  const handleCoordinateCenter = (id: number) => {
+    console.log('handleCoordinateCenter called with id:', id);
+    setCenterCoordinate(id);
+    setSelectedCoordinate(id);
+    setTimeout(() => setCenterCoordinate(null), 100);
+  };
+  
+  const handleMarkerClick = (id: number) => {
+    console.log('handleMarkerClick called with id:', id);
+    console.log('Current selectedCoordinate:', selectedCoordinate);
+    setSelectedCoordinate(id === selectedCoordinate ? null : id);
+  };
+
+  
   const handleFileUpload = (file: File | null) => {
     if (!file) return;
 
@@ -48,6 +74,9 @@ const LandBoundaryPlotter = () => {
           });
           
           setCoordinates(validCoords);
+          console.log('Coordinates loaded:', validCoords);
+          console.log('First coordinate structure:', validCoords[0]);
+
           setError('');
         } else {
           setError('JSON should contain an array of coordinate objects');
@@ -237,27 +266,41 @@ const LandBoundaryPlotter = () => {
           </Card>
         )}
 
-        {/* Map Display */}
+        {/* Split Layout: Coordinate List + Map */}
         {coordinates.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-blue-600" />
-                Boundary Map
-              </CardTitle>
-              <CardDescription>
-                Your boundary points visualized on the map
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-96 w-full rounded-lg overflow-hidden border">
-                <MapComponent 
-                  coordinates={coordinates}
-                  apiKey={GOOGLE_MAPS_API_KEY}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Coordinate List */}
+            <CoordinateList
+              coordinates={coordinates}
+              selectedCoordinate={selectedCoordinate}
+              onCoordinateSelect={handleCoordinateSelect}
+              onCoordinateCenter={handleCoordinateCenter}
+            />
+            
+            {/* Map */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-blue-600" />
+                  Boundary Map
+                </CardTitle>
+                <CardDescription>
+                  Click markers or coordinates to interact
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-96 w-full rounded-lg overflow-hidden border">
+                  <MapComponent 
+                    coordinates={coordinates}
+                    apiKey={GOOGLE_MAPS_API_KEY}
+                    selectedCoordinate={selectedCoordinate}
+                    onMarkerClick={handleMarkerClick}
+                    centerCoordinate={centerCoordinate}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Next Steps */}
@@ -308,6 +351,19 @@ const LandBoundaryPlotter = () => {
               </div>
               <p className="text-xs text-gray-600 mt-3">
                 💡 Supports both lat/lng and latitude/longitude field names
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        {/* Temporary Debug Info */}
+        {coordinates.length > 0 && (
+          <Card className="bg-yellow-50 border-yellow-200">
+            <CardContent className="pt-4">
+              <p className="text-sm">
+                <strong>Debug Info:</strong><br/>
+                Selected Coordinate: {selectedCoordinate}<br/>
+                Total Coordinates: {coordinates.length}<br/>
+                First Coordinate ID: {coordinates[0]?.id}
               </p>
             </CardContent>
           </Card>
