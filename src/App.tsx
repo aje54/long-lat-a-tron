@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
-import { Upload, MapPin, AlertCircle, CheckCircle, X, FileText } from 'lucide-react';
+import { Upload, MapPin, AlertCircle, CheckCircle, X, FileText, RotateCcw, Navigation } from 'lucide-react';
+import { Satellite, Mountain } from 'lucide-react';
 import { Alert, AlertDescription } from './components/ui/alert';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -17,7 +17,46 @@ const LandBoundaryPlotter = () => {
   const GOOGLE_MAPS_API_KEY = 'AIzaSyBeoZp5kOUEDDRT4IUmunZb4AJuXc4wXAY';
   const [selectedCoordinate, setSelectedCoordinate] = useState<number | null>(null);
   const [centerCoordinate, setCenterCoordinate] = useState<number | null>(null);
+  const [mapType, setMapType] = useState<string>('hybrid');
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
 
+  const handleMapTypeChange = (type: string) => {
+    console.log('🔄 Changing map type from', mapType, 'to', type);
+    setMapType(type);
+  };
+
+  const handleZoomIn = () => {
+    if (mapInstance) {
+      mapInstance.setZoom(mapInstance.getZoom()! + 1);
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (mapInstance) {
+      mapInstance.setZoom(mapInstance.getZoom()! - 1);
+    }
+  };
+
+  const handleResetView = () => {
+    if (mapInstance && coordinates.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      coordinates.forEach(coord => {
+        bounds.extend({ lat: coord.lat, lng: coord.lng });
+      });
+      mapInstance.fitBounds(bounds);
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (mapInstance) {
+      alert('Use the fullscreen button on the map, or implement custom fullscreen logic');
+    }
+  };
+
+  const handleMapReady = (map: google.maps.Map) => {
+    console.log('📍 Map ready, setting map instance');
+    setMapInstance(map);
+  };
 
   const handleCoordinateSelect = (id: number) => {
     console.log('handleCoordinateSelect called with id:', id);
@@ -40,7 +79,6 @@ const LandBoundaryPlotter = () => {
     setSelectedCoordinate(id === selectedCoordinate ? null : id);
   };
 
-  
   const handleFileUpload = (file: File | null) => {
     if (!file) return;
 
@@ -77,7 +115,6 @@ const LandBoundaryPlotter = () => {
           setCoordinates(validCoords);
           console.log('Coordinates loaded:', validCoords);
           console.log('First coordinate structure:', validCoords[0]);
-
           setError('');
         } else {
           setError('JSON should contain an array of coordinate objects');
@@ -278,30 +315,95 @@ const LandBoundaryPlotter = () => {
               onCoordinateCenter={handleCoordinateCenter}
             />
             
-            {/* Map */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-blue-600" />
-                  Boundary Map
-                </CardTitle>
-                <CardDescription>
-                  Click markers or coordinates to interact
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-96 w-full rounded-lg overflow-hidden border">
-                  <MapComponent 
-                    coordinates={coordinates}
-                    apiKey={GOOGLE_MAPS_API_KEY}
-                    selectedCoordinate={selectedCoordinate}
-                    onMarkerClick={handleMarkerClick}
-                    centerCoordinate={centerCoordinate}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+           {/* Map with Split Controls */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <MapPin className="h-5 w-5 text-blue-600" />
+      Boundary Map
+    </CardTitle>
+    <CardDescription>
+      Interactive map with view controls
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="space-y-4">
+      {/* Map Type Controls - Top */}
+      <div className="bg-gray-50 p-3 rounded-lg">
+        <div className="flex flex-wrap gap-2 justify-between items-center">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={mapType === 'hybrid' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleMapTypeChange('hybrid')}
+              className="text-xs"
+            >
+              <Satellite className="h-3 w-3 mr-1" />
+              Satellite
+            </Button>
+            <Button
+              variant={mapType === 'terrain' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleMapTypeChange('terrain')}
+              className="text-xs"
+            >
+              <Mountain className="h-3 w-3 mr-1" />
+              Terrain
+            </Button>
+            <Button
+              variant={mapType === 'roadmap' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleMapTypeChange('roadmap')}
+              className="text-xs"
+            >
+              <Navigation className="h-3 w-3 mr-1" />
+              Street
+            </Button>
           </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetView}
+            className="text-xs"
+          >
+            <RotateCcw className="h-3 w-3 mr-1" />
+            Reset View
+          </Button>
+        </div>
+      </div>
+      
+      {/* Map */}
+      <div className="h-96 w-full rounded-lg overflow-hidden border">
+        <MapComponent 
+          coordinates={coordinates}
+          apiKey={GOOGLE_MAPS_API_KEY}
+          selectedCoordinate={selectedCoordinate}
+          onMarkerClick={handleMarkerClick}
+          centerCoordinate={centerCoordinate}
+          mapType={mapType}
+          onMapReady={handleMapReady}
+        />
+      </div>
+      
+      {/* Map Info - Bottom */}
+      <div className="bg-gray-50 p-3 rounded-lg">
+        <div className="flex items-center justify-center">
+          <Badge variant="outline" className="text-xs">
+            <MapPin className="h-3 w-3 mr-1" />
+            {coordinates.length} boundary points
+          </Badge>
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+          </div>
+        )}
+
+        {/* Area Calculator */}
+        {coordinates.length > 0 && (
+          <AreaCalculator coordinates={coordinates} />
         )}
 
         {/* Next Steps */}
@@ -317,27 +419,23 @@ const LandBoundaryPlotter = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  Google Maps integration
-                </div>
-                <div className="flex items-center gap-2 text-sm text-blue-700">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  Boundary visualization
-                </div>
-                <div className="flex items-center gap-2 text-sm text-blue-700">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   GPS tracking mode
                 </div>
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   Proximity notifications
                 </div>
+                <div className="flex items-center gap-2 text-sm text-blue-700">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  Mobile responsive design
+                </div>
+                <div className="flex items-center gap-2 text-sm text-blue-700">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  Progressive Web App
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
-        {/* Area Calculator */}
-        {coordinates.length > 0 && (
-          <AreaCalculator coordinates={coordinates} />
         )}
 
         {/* Sample Format Help */}
@@ -352,23 +450,15 @@ const LandBoundaryPlotter = () => {
             <CardContent>
               <div className="bg-gray-50 rounded-lg p-4">
                 <pre className="text-sm overflow-x-auto">
+{`[
+  {"lat": 40.7128, "lng": -74.0060},
+  {"lat": 40.7130, "lng": -74.0058},
+  {"latitude": 40.7132, "longitude": -74.0056}
+]`}
                 </pre>
               </div>
               <p className="text-xs text-gray-600 mt-3">
                 💡 Supports both lat/lng and latitude/longitude field names
-              </p>
-            </CardContent>
-          </Card>
-        )}
-        {/* Temporary Debug Info */}
-        {coordinates.length > 0 && (
-          <Card className="bg-yellow-50 border-yellow-200">
-            <CardContent className="pt-4">
-              <p className="text-sm">
-                <strong>Debug Info:</strong><br/>
-                Selected Coordinate: {selectedCoordinate}<br/>
-                Total Coordinates: {coordinates.length}<br/>
-                First Coordinate ID: {coordinates[0]?.id}
               </p>
             </CardContent>
           </Card>
