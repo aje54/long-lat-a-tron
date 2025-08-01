@@ -15,6 +15,8 @@ interface MapComponentProps {
   selectedCoordinate: number | null;
   onMarkerClick: (id: number) => void;
   centerCoordinate: number | null;
+  mapType: string;
+  onMapReady: (map: google.maps.Map) => void;
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({ 
@@ -22,7 +24,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
   apiKey, 
   selectedCoordinate, 
   onMarkerClick,
-  centerCoordinate 
+  centerCoordinate,
+  mapType,
+  onMapReady
 }) => {
   const render = (status: Status) => {
     switch (status) {
@@ -32,11 +36,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
         return <div className="flex items-center justify-center h-full text-red-600">Error loading map</div>;
       case Status.SUCCESS:
         return (
-          <Map 
+          <MapDisplay 
             coordinates={coordinates} 
             selectedCoordinate={selectedCoordinate}
             onMarkerClick={onMarkerClick}
             centerCoordinate={centerCoordinate}
+            mapType={mapType}
+            onMapReady={onMapReady}
           />
         );
     }
@@ -47,35 +53,65 @@ const MapComponent: React.FC<MapComponentProps> = ({
   );
 };
 
-interface MapProps {
+
+
+
+interface MapDisplayProps {
   coordinates: Coordinate[];
   selectedCoordinate: number | null;
   onMarkerClick: (id: number) => void;
   centerCoordinate: number | null;
+  mapType: string;
+  onMapReady: (map: google.maps.Map) => void;
 }
 
-const Map: React.FC<MapProps> = ({ 
+const MapDisplay: React.FC<MapDisplayProps> = ({ 
   coordinates, 
   selectedCoordinate, 
   onMarkerClick,
-  centerCoordinate 
+  centerCoordinate,
+  mapType,
+  onMapReady
 }) => {
   const mapRef = React.useRef<HTMLDivElement>(null);
   const map = React.useRef<google.maps.Map | null>(null);
   const markers = React.useRef<google.maps.Marker[]>([]);
   const polygon = React.useRef<google.maps.Polygon | null>(null);
 
-  // Initialize map
-  React.useEffect(() => {
+// In the MapDisplay component, update the map initialization:
+React.useEffect(() => {
     if (mapRef.current && !map.current) {
       console.log('Initializing Google Map');
       map.current = new google.maps.Map(mapRef.current, {
         center: { lat: 0, lng: 0 },
         zoom: 10,
-        mapTypeId: 'hybrid',
+        mapTypeId: mapType as google.maps.MapTypeId,
+        // Disable all built-in controls
+        mapTypeControl: false,
+        zoomControl: true,
+        zoomControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_CENTER,
+        },
+        streetViewControl: false,
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_TOP,
+        },
+        // Remove the gestureHandling if it causes issues
+        gestureHandling: 'cooperative',
       });
+      
+      // Call onMapReady to provide map instance to parent
+      onMapReady(map.current);
     }
-  }, []);
+  }, [onMapReady, mapType]);
+
+  // Update map type when changed
+  React.useEffect(() => {
+    if (map.current) {
+      map.current.setMapTypeId(mapType as google.maps.MapTypeId);
+    }
+  }, [mapType]);
 
   // Update markers and polygon when coordinates or selection changes
   React.useEffect(() => {
