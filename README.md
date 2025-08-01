@@ -1,3 +1,22 @@
+# Clone repository
+```git clone https://github.com/YOUR_USERNAME/long-lat-a-tron.git```
+```cd long-lat-a-tron```
+
+# Install dependencies
+```npm install```
+
+# Install shadcn/ui
+```npx shadcn@latest init```
+```npx shadcn@latest add card button badge alert```
+
+# Install additional packages
+```npm install @googlemaps/react-wrapper```
+```npm install @types/google.maps```
+```npm install tailwindcss-animate class-variance-authority clsx tailwind-merge```
+```npm install lucide-react```
+```npm install geolib @types/geolib```
+
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
