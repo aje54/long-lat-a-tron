@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Badge } from './components/ui/badge';
 import MapComponent from './MapComponent';
 import CoordinateList from './CoordinateList';
+import AreaCalculator from './AreaCalculator';
 
 const LandBoundaryPlotter = () => {
   const [coordinates, setCoordinates] = useState<any[]>([]);
@@ -333,6 +334,10 @@ const LandBoundaryPlotter = () => {
               </div>
             </CardContent>
           </Card>
+        )}
+        {/* Area Calculator */}
+        {coordinates.length > 0 && (
+          <AreaCalculator coordinates={coordinates} />
         )}
 
         {/* Sample Format Help */}
