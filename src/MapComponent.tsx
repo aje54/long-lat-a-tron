@@ -144,6 +144,7 @@ const Map: React.FC<MapProps> = ({
       polygon.current.setMap(map.current);
     }
 
+    
     // Fit map to show all coordinates (only on initial load)
     if (selectedCoordinate === null && centerCoordinate === null) {
       const bounds = new google.maps.LatLngBounds();
