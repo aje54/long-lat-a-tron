@@ -8,14 +8,19 @@ import { Badge } from './components/ui/badge';
 import MapComponent from './MapComponent';
 import CoordinateList from './CoordinateList';
 import AreaCalculator from './AreaCalculator';
+import GPSControls from './gpsControls';
+import ManualPlottingControls from './ManualPlottingControls';
 import { useFileUpload, Coordinate } from './hooks/useFileUpload';
 import { useMapControls } from './hooks/useMapControls';
 import { useCoordinateSelection } from './hooks/useCoordinateSelection';
+import { useGPSTracking } from './hooks/useGPSTracking';
+import { usePlotMode } from './hooks/usePlotMode';
+import { useManualPlotting } from './hooks/useManualPlotting';
 
 const LandBoundaryPlotter = () => {
   const GOOGLE_MAPS_API_KEY = 'AIzaSyBeoZp5kOUEDDRT4IUmunZb4AJuXc4wXAY';
 
-  // Custom hooks
+  // File upload hook
   const {
     coordinates,
     fileName,
@@ -26,8 +31,24 @@ const LandBoundaryPlotter = () => {
     handleDragOver,
     handleDragLeave,
     clearData,
+    setCoordinates,
   } = useFileUpload();
 
+  // Manual plotting hook - FIRST so variables are available
+  const {
+    isManualMode,
+    isRecording,
+    manualCoordinates,
+    addCurrentLocationAsCoordinate,
+    removeLastCoordinate,
+    clearManualCoordinates,
+    startManualMode,
+    completeManualMode,
+    exportToJSON,
+    setManualCoordinates,
+  } = useManualPlotting();
+
+  // Map controls hook
   const {
     mapType,
     handleMapTypeChange,
@@ -35,6 +56,7 @@ const LandBoundaryPlotter = () => {
     handleMapReady,
   } = useMapControls();
 
+  // Coordinate selection hook
   const {
     selectedCoordinate,
     centerCoordinate,
@@ -42,6 +64,35 @@ const LandBoundaryPlotter = () => {
     handleCoordinateCenter,
     handleMarkerClick,
   } = useCoordinateSelection();
+
+  // Get the active coordinates (uploaded or manual)
+  const activeCoordinates = coordinates.length > 0 ? coordinates : manualCoordinates;
+
+  // GPS tracking hook - NOW activeCoordinates is defined
+  const {
+    userLocation,
+    isTracking,
+    trackingError,
+    nearbyPoint,
+    startTracking,
+    stopTracking,
+  } = useGPSTracking(activeCoordinates);
+
+  // Plot mode hook - NOW all variables are defined
+  const {
+    isPlotMode,
+    plotProgress,
+    markPointAsPlotted,
+    resetPlotProgress,
+    togglePlotMode,
+    getPlottedCount,
+    getTotalCount,
+  } = usePlotMode(activeCoordinates, coordinates.length > 0 ? setCoordinates : setManualCoordinates);
+
+  // Handle plotting current GPS location
+  const handlePlotCurrentLocation = () => {
+    addCurrentLocationAsCoordinate(userLocation);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
@@ -55,7 +106,7 @@ const LandBoundaryPlotter = () => {
               Long-Lat-A-Tron
             </CardTitle>
             <CardDescription>
-              Step 1: Upload your coordinate file to get started
+              Professional land boundary plotting, GPS tracking, and coordinate creation
             </CardDescription>
           </CardHeader>
         </Card>
@@ -68,7 +119,7 @@ const LandBoundaryPlotter = () => {
               Upload Coordinates
             </CardTitle>
             <CardDescription>
-              Upload a JSON file containing your boundary coordinates
+              Upload a JSON file containing your boundary coordinates or create them using GPS
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -137,49 +188,79 @@ const LandBoundaryPlotter = () => {
           </Alert>
         )}
 
+        {/* Manual Plotting Controls */}
+        <ManualPlottingControls
+          isManualMode={isManualMode}
+          isRecording={isRecording}
+          manualCoordinates={manualCoordinates}
+          userLocation={userLocation}
+          isTracking={isTracking}
+          onStartManualMode={startManualMode}
+          onCompleteManualMode={completeManualMode}
+          onPlotCurrentLocation={handlePlotCurrentLocation}
+          onClearCoordinates={clearManualCoordinates}
+          onRemoveLastCoordinate={removeLastCoordinate}
+          onExportToJSON={exportToJSON}
+        />
+
         {/* Coordinates Preview */}
-        {coordinates.length > 0 && (
+        {activeCoordinates.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  Coordinates Loaded
+                  {coordinates.length > 0 ? 'Uploaded' : 'GPS Recorded'} Coordinates
                 </CardTitle>
                 <Badge variant="secondary">
-                  {coordinates.length} points
+                  {activeCoordinates.length} points
                 </Badge>
               </div>
               <CardDescription>
-                Your boundary points are ready for mapping
+                Your boundary points are ready for mapping and field plotting
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm font-medium">
-                    Successfully loaded {coordinates.length} coordinate points
+                    {coordinates.length > 0 ? 'Uploaded' : 'GPS recorded'} {activeCoordinates.length} coordinate points
                   </p>
                 </div>
 
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {coordinates.slice(0, 8).map((coord: Coordinate, index: number) => (
+                  {activeCoordinates.slice(0, 8).map((coord: Coordinate, index: number) => (
                     <div key={coord.id} className="flex items-center justify-between p-2 bg-white rounded border">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-medium">
-                          {index + 1}
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                          coord.plotted 
+                            ? 'bg-green-100 text-green-700' 
+                            : coord.original?.manually_created
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {coord.plotted ? '✓' : index + 1}
                         </div>
-                        <span className="text-sm font-medium">Point {index + 1}</span>
+                        <div>
+                          <span className="text-sm font-medium">
+                            Point {index + 1} 
+                            {coord.plotted && ' (Plotted)'}
+                            {coord.original?.manually_created && ' (GPS)'}
+                          </span>
+                          {coord.original?.accuracy && (
+                            <p className="text-xs text-gray-500">±{coord.original.accuracy.toFixed(0)}m</p>
+                          )}
+                        </div>
                       </div>
                       <div className="text-sm text-gray-600 font-mono">
                         {coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}
                       </div>
                     </div>
                   ))}
-                  {coordinates.length > 8 && (
+                  {activeCoordinates.length > 8 && (
                     <div className="text-center py-2">
                       <Badge variant="outline">
-                        +{coordinates.length - 8} more points
+                        +{activeCoordinates.length - 8} more points
                       </Badge>
                     </div>
                   )}
@@ -189,12 +270,31 @@ const LandBoundaryPlotter = () => {
           </Card>
         )}
 
+        {/* GPS Controls */}
+        {activeCoordinates.length > 0 && (
+          <GPSControls
+            userLocation={userLocation}
+            isTracking={isTracking}
+            trackingError={trackingError}
+            nearbyPoint={nearbyPoint}
+            isPlotMode={isPlotMode}
+            plotProgress={plotProgress}
+            plottedCount={getPlottedCount()}
+            totalCount={getTotalCount()}
+            onStartTracking={startTracking}
+            onStopTracking={stopTracking}
+            onTogglePlotMode={togglePlotMode}
+            onMarkPointPlotted={markPointAsPlotted}
+            onResetProgress={resetPlotProgress}
+          />
+        )}
+
         {/* Split Layout: Coordinate List + Map */}
-        {coordinates.length > 0 && (
+        {activeCoordinates.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Coordinate List */}
             <CoordinateList
-              coordinates={coordinates}
+              coordinates={activeCoordinates}
               selectedCoordinate={selectedCoordinate}
               onCoordinateSelect={handleCoordinateSelect}
               onCoordinateCenter={handleCoordinateCenter}
@@ -206,9 +306,19 @@ const LandBoundaryPlotter = () => {
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-blue-600" />
                   Boundary Map
+                  {isTracking && (
+                    <Badge variant="default" className="bg-blue-600 text-xs">
+                      GPS Active
+                    </Badge>
+                  )}
+                  {isManualMode && (
+                    <Badge variant="default" className="bg-purple-600 text-xs">
+                      Recording
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
-                  Interactive map with view controls
+                  Interactive map with GPS tracking and coordinate recording
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -246,7 +356,7 @@ const LandBoundaryPlotter = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleResetView(coordinates)}
+                        onClick={() => handleResetView(activeCoordinates)}
                         className="text-xs"
                       >
                         <RotateCcw className="h-3 w-3 mr-1" />
@@ -258,23 +368,34 @@ const LandBoundaryPlotter = () => {
                   {/* Map */}
                   <div className="h-96 w-full rounded-lg overflow-hidden border">
                     <MapComponent 
-                      coordinates={coordinates}
+                      coordinates={activeCoordinates}
                       apiKey={GOOGLE_MAPS_API_KEY}
                       selectedCoordinate={selectedCoordinate}
                       onMarkerClick={handleMarkerClick}
                       centerCoordinate={centerCoordinate}
                       mapType={mapType}
                       onMapReady={handleMapReady}
+                      userLocation={userLocation}
                     />
                   </div>
                   
                   {/* Map Info */}
                   <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-between">
                       <Badge variant="outline" className="text-xs">
                         <MapPin className="h-3 w-3 mr-1" />
-                        {coordinates.length} boundary points
+                        {activeCoordinates.length} boundary points
                       </Badge>
+                      {isPlotMode && (
+                        <Badge variant="outline" className="text-xs bg-orange-100">
+                          🎯 Plot Mode: {getPlottedCount()}/{getTotalCount()} complete
+                        </Badge>
+                      )}
+                      {isManualMode && (
+                        <Badge variant="outline" className="text-xs bg-purple-100">
+                          📍 Recording GPS coordinates
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -284,36 +405,58 @@ const LandBoundaryPlotter = () => {
         )}
 
         {/* Area Calculator */}
-        {coordinates.length > 0 && (
-          <AreaCalculator coordinates={coordinates} />
+        {activeCoordinates.length > 0 && (
+          <AreaCalculator coordinates={activeCoordinates} />
+        )}
+
+        {/* Completion Status */}
+        {activeCoordinates.length > 0 && isPlotMode && plotProgress === 100 && (
+          <Card className="border-green-200 bg-green-50">
+            <CardHeader>
+              <CardTitle className="text-green-800 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5" />
+                🎉 Boundary Complete!
+              </CardTitle>
+              <CardDescription className="text-green-700">
+                All {activeCoordinates.length} boundary points have been successfully plotted!
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-green-800 font-medium">
+                  Surveying complete! All boundary markers have been physically located and confirmed.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Next Steps */}
-        {coordinates.length > 0 && (
+        {activeCoordinates.length > 0 && !isPlotMode && !isManualMode && (
           <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
-              <CardTitle className="text-blue-800">🎯 Ready for Step 4!</CardTitle>
+              <CardTitle className="text-blue-800">🎯 Ready for Field Work!</CardTitle>
               <CardDescription className="text-blue-700">
-                Code refactored with custom hooks. Ready for GPS tracking!
+                Your boundary map is ready. Use GPS tracking to navigate to each point.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  GPS tracking mode
+                  GPS tracking with proximity alerts
                 </div>
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  Proximity notifications
+                  Plot mode for field confirmation
                 </div>
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  Mobile responsive design
+                  GPS-based coordinate recording
                 </div>
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  Progressive Web App
+                  Export coordinates as JSON
                 </div>
               </div>
             </CardContent>
@@ -321,16 +464,17 @@ const LandBoundaryPlotter = () => {
         )}
 
         {/* Sample Format Help */}
-        {coordinates.length === 0 && !error && (
+        {coordinates.length === 0 && manualCoordinates.length === 0 && !error && (
           <Card>
             <CardHeader>
-              <CardTitle>📋 Expected JSON Format</CardTitle>
+              <CardTitle>📋 Getting Started</CardTitle>
               <CardDescription>
-                Your JSON file should contain an array of coordinate objects
+                Upload a JSON file or record coordinates using GPS tracking
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-medium mb-2">Expected JSON format:</p>
                 <pre className="text-sm overflow-x-auto">
 {`[
   {"lat": 40.7128, "lng": -74.0060},
@@ -341,6 +485,9 @@ const LandBoundaryPlotter = () => {
               </div>
               <p className="text-xs text-gray-600 mt-3">
                 💡 Supports both lat/lng and latitude/longitude field names
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                📍 Or use GPS Recording to walk to each point and record your location
               </p>
             </CardContent>
           </Card>

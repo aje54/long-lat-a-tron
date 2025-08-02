@@ -17,6 +17,21 @@ interface MapComponentProps {
   centerCoordinate: number | null;
   mapType: string;
   onMapReady: (map: google.maps.Map) => void;
+  userLocation?: { lat: number; lng: number; accuracy: number } | null;
+  isManualMode?: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
+}
+
+interface MapDisplayProps {
+  coordinates: Coordinate[];
+  selectedCoordinate: number | null;
+  onMarkerClick: (id: number) => void;
+  centerCoordinate: number | null;
+  mapType: string;
+  onMapReady: (map: google.maps.Map) => void;
+  userLocation?: { lat: number; lng: number; accuracy: number } | null;
+  isManualMode?: boolean;
+  onMapClick?: (lat: number, lng: number) => void;
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({ 
@@ -26,7 +41,10 @@ const MapComponent: React.FC<MapComponentProps> = ({
   onMarkerClick,
   centerCoordinate,
   mapType,
-  onMapReady
+  onMapReady,
+  userLocation,
+  isManualMode,
+  onMapClick
 }) => {
   const render = (status: Status) => {
     switch (status) {
@@ -43,6 +61,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
             centerCoordinate={centerCoordinate}
             mapType={mapType}
             onMapReady={onMapReady}
+            userLocation={userLocation}
+            isManualMode={isManualMode}
+            onMapClick={onMapClick}
           />
         );
     }
@@ -53,40 +74,32 @@ const MapComponent: React.FC<MapComponentProps> = ({
   );
 };
 
-
-
-
-interface MapDisplayProps {
-  coordinates: Coordinate[];
-  selectedCoordinate: number | null;
-  onMarkerClick: (id: number) => void;
-  centerCoordinate: number | null;
-  mapType: string;
-  onMapReady: (map: google.maps.Map) => void;
-}
-
 const MapDisplay: React.FC<MapDisplayProps> = ({ 
   coordinates, 
   selectedCoordinate, 
   onMarkerClick,
   centerCoordinate,
   mapType,
-  onMapReady
+  onMapReady,
+  userLocation,
+  isManualMode,
+  onMapClick
 }) => {
   const mapRef = React.useRef<HTMLDivElement>(null);
   const map = React.useRef<google.maps.Map | null>(null);
   const markers = React.useRef<google.maps.Marker[]>([]);
   const polygon = React.useRef<google.maps.Polygon | null>(null);
+  const userMarker = React.useRef<google.maps.Marker | null>(null);
+  const userAccuracyCircle = React.useRef<google.maps.Circle | null>(null);
 
-// In the MapDisplay component, update the map initialization:
-React.useEffect(() => {
+  // Initialize map
+  React.useEffect(() => {
     if (mapRef.current && !map.current) {
       console.log('Initializing Google Map');
       map.current = new google.maps.Map(mapRef.current, {
         center: { lat: 0, lng: 0 },
         zoom: 10,
         mapTypeId: mapType as google.maps.MapTypeId,
-        // Disable all built-in controls
         mapTypeControl: false,
         zoomControl: true,
         zoomControlOptions: {
@@ -97,14 +110,24 @@ React.useEffect(() => {
         fullscreenControlOptions: {
           position: google.maps.ControlPosition.RIGHT_TOP,
         },
-        // Remove the gestureHandling if it causes issues
         gestureHandling: 'cooperative',
       });
       
-      // Call onMapReady to provide map instance to parent
       onMapReady(map.current);
+
+      // Map click listener for manual plotting
+      if (onMapClick) {
+        map.current.addListener('click', (event: google.maps.MapMouseEvent) => {
+          if (isManualMode && event.latLng) {
+            const lat = event.latLng.lat();
+            const lng = event.latLng.lng();
+            onMapClick(lat, lng);
+            console.log('📍 Manual point added:', lat.toFixed(6), lng.toFixed(6));
+          }
+        });
+      }
     }
-  }, [onMapReady, mapType]);
+  }, [onMapReady, mapType, onMapClick, isManualMode]);
 
   // Update map type when changed
   React.useEffect(() => {
@@ -112,6 +135,53 @@ React.useEffect(() => {
       map.current.setMapTypeId(mapType as google.maps.MapTypeId);
     }
   }, [mapType]);
+
+  // Update user location marker
+  React.useEffect(() => {
+    if (!map.current) return;
+
+    // Clear existing user marker and accuracy circle
+    if (userMarker.current) {
+      userMarker.current.setMap(null);
+      userMarker.current = null;
+    }
+    if (userAccuracyCircle.current) {
+      userAccuracyCircle.current.setMap(null);
+      userAccuracyCircle.current = null;
+    }
+
+    if (userLocation) {
+      // Create user location marker
+      userMarker.current = new google.maps.Marker({
+        position: { lat: userLocation.lat, lng: userLocation.lng },
+        map: map.current,
+        title: 'Your Location',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: '#4285F4',
+          fillOpacity: 1,
+          strokeColor: 'white',
+          strokeWeight: 2,
+        },
+        zIndex: 1000,
+      });
+
+      // Create accuracy circle
+      userAccuracyCircle.current = new google.maps.Circle({
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.4,
+        strokeWeight: 1,
+        fillColor: '#4285F4',
+        fillOpacity: 0.1,
+        map: map.current,
+        center: { lat: userLocation.lat, lng: userLocation.lng },
+        radius: userLocation.accuracy,
+      });
+
+      console.log('👤 User location marker updated');
+    }
+  }, [userLocation]);
 
   // Update markers and polygon when coordinates or selection changes
   React.useEffect(() => {
@@ -133,10 +203,13 @@ React.useEffect(() => {
       
       console.log(`Creating marker ${index + 1}, id: ${coord.id}, selected: ${isSelected}`);
       
+      // Use different colors for manual vs uploaded coordinates
+      const isManual = coord.original?.manually_created;
+      
       const marker = new google.maps.Marker({
         position: { lat: coord.lat, lng: coord.lng },
         map: map.current,
-        title: `Point ${index + 1}`,
+        title: `Point ${index + 1}${isManual ? ' (Manual)' : ''}`,
         label: {
           text: (index + 1).toString(),
           color: isSelected ? 'white' : 'black',
@@ -145,7 +218,13 @@ React.useEffect(() => {
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: isSelected ? 15 : 10,
-          fillColor: isSelected ? '#3B82F6' : coord.plotted ? '#10B981' : '#6B7280',
+          fillColor: isSelected 
+            ? '#3B82F6' 
+            : isManual 
+              ? '#8B5CF6' // Purple for manual points
+              : coord.plotted 
+                ? '#10B981' 
+                : '#6B7280',
           fillOpacity: 1,
           strokeColor: 'white',
           strokeWeight: 2,

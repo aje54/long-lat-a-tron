@@ -104,6 +104,7 @@ export const useFileUpload = () => {
     handleDragOver,
     handleDragLeave,
     clearData,
+    setCoordinates,
   };
 };
 
