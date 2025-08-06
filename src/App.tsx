@@ -18,7 +18,8 @@ import { usePlotMode } from './hooks/usePlotMode';
 import { useManualPlotting } from './hooks/useManualPlotting';
 
 const LandBoundaryPlotter = () => {
-  const GOOGLE_MAPS_API_KEY = 'AIzaSyBeoZp5kOUEDDRT4IUmunZb4AJuXc4wXAY';
+  // const GOOGLE_MAPS_API_KEY = 'AIzaSyBeoZp5kOUEDDRT4IUmunZb4AJuXc4wXAY';
+  const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
 
   // File upload hook
   const {
@@ -190,18 +191,19 @@ const LandBoundaryPlotter = () => {
 
         {/* Manual Plotting Controls */}
         <ManualPlottingControls
-          isManualMode={isManualMode}
-          isRecording={isRecording}
-          manualCoordinates={manualCoordinates}
-          userLocation={userLocation}
-          isTracking={isTracking}
-          onStartManualMode={startManualMode}
-          onCompleteManualMode={completeManualMode}
-          onPlotCurrentLocation={handlePlotCurrentLocation}
-          onClearCoordinates={clearManualCoordinates}
-          onRemoveLastCoordinate={removeLastCoordinate}
-          onExportToJSON={exportToJSON}
-        />
+  isManualMode={isManualMode}
+  isRecording={isRecording}
+  manualCoordinates={manualCoordinates}
+  userLocation={userLocation}
+  isTracking={isTracking}
+  onStartManualMode={startManualMode}
+  onCompleteManualMode={completeManualMode}
+  onPlotCurrentLocation={handlePlotCurrentLocation}
+  onClearCoordinates={clearManualCoordinates}
+  onRemoveLastCoordinate={removeLastCoordinate}
+  onExportToJSON={exportToJSON}
+  onStartGPSTracking={startTracking}
+/>
 
         {/* Coordinates Preview */}
         {activeCoordinates.length > 0 && (

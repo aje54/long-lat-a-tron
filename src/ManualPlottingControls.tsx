@@ -41,6 +41,7 @@ interface ManualPlottingControlsProps {
   onClearCoordinates: () => void;
   onRemoveLastCoordinate: () => void;
   onExportToJSON: (filename: string) => void;
+  onStartGPSTracking: () => void;
 }
 
 const ManualPlottingControls: React.FC<ManualPlottingControlsProps> = ({
@@ -55,6 +56,7 @@ const ManualPlottingControls: React.FC<ManualPlottingControlsProps> = ({
   onClearCoordinates,
   onRemoveLastCoordinate,
   onExportToJSON,
+  onStartGPSTracking,
 }) => {
   const [exportFilename, setExportFilename] = useState('my-boundary');
 
@@ -123,16 +125,26 @@ const ManualPlottingControls: React.FC<ManualPlottingControlsProps> = ({
 
         {/* Control Buttons */}
         <div className="flex gap-2">
-          {!isManualMode ? (
+          {!isTracking ? (
+            // Step 1: Start GPS Tracking first
+            <Button
+              onClick={onStartGPSTracking}
+              className="flex-1"
+            >
+              <Navigation className="h-4 w-4 mr-1" />
+              Start GPS Tracking
+            </Button>
+          ) : !isManualMode ? (
+            // Step 2: Once GPS is active, allow recording
             <Button
               onClick={onStartManualMode}
-              disabled={!isTracking}
               className="flex-1"
             >
               <Play className="h-4 w-4 mr-1" />
               Start Recording
             </Button>
           ) : (
+            // Step 3: Recording mode buttons
             <>
               <Button
                 onClick={onPlotCurrentLocation}
