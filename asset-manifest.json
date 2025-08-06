@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/long-lat-a-tron/static/css/main.dd78ad28.css",
-    "main.js": "/long-lat-a-tron/static/js/main.92cd428b.js",
+    "main.js": "/long-lat-a-tron/static/js/main.0a5f2bab.js",
     "static/js/453.4db9945e.chunk.js": "/long-lat-a-tron/static/js/453.4db9945e.chunk.js",
     "index.html": "/long-lat-a-tron/index.html",
     "main.dd78ad28.css.map": "/long-lat-a-tron/static/css/main.dd78ad28.css.map",
-    "main.92cd428b.js.map": "/long-lat-a-tron/static/js/main.92cd428b.js.map",
+    "main.0a5f2bab.js.map": "/long-lat-a-tron/static/js/main.0a5f2bab.js.map",
     "453.4db9945e.chunk.js.map": "/long-lat-a-tron/static/js/453.4db9945e.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.dd78ad28.css",
-    "static/js/main.92cd428b.js"
+    "static/js/main.0a5f2bab.js"
   ]
 }
