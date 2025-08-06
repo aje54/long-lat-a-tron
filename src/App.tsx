@@ -18,8 +18,9 @@ import { usePlotMode } from './hooks/usePlotMode';
 import { useManualPlotting } from './hooks/useManualPlotting';
 
 const LandBoundaryPlotter = () => {
-  // const GOOGLE_MAPS_API_KEY = 'AIzaSyBeoZp5kOUEDDRT4IUmunZb4AJuXc4wXAY';
+  
   const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
+  console.log('🔑 API Key:', GOOGLE_MAPS_API_KEY ? 'LOADED' : 'EMPTY');
 
   // File upload hook
   const {
@@ -107,79 +108,86 @@ const LandBoundaryPlotter = () => {
               Long-Lat-A-Tron
             </CardTitle>
             <CardDescription>
-              Professional land boundary plotting, GPS tracking, and coordinate creation
+              V0.1
             </CardDescription>
           </CardHeader>
         </Card>
 
-        {/* File Upload */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Upload Coordinates
-            </CardTitle>
-            <CardDescription>
-              Upload a JSON file containing your boundary coordinates or create them using GPS
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                isDragging 
-                  ? 'border-green-500 bg-green-50' 
-                  : 'border-gray-300 hover:border-gray-400'
-              }`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <div className="space-y-4">
-                <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-gray-400" />
-                </div>
-                
-                <div>
-                  <p className="text-lg font-medium">
-                    Drop your JSON file here, or click to browse
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Supports .json files with lat/lng coordinates
-                  </p>
-                </div>
+{/* File Upload */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Upload className="h-5 w-5" />
+      Upload Coordinates
+    </CardTitle>
+    <CardDescription>
+      Upload a JSON file containing your boundary coordinates or create them using GPS
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div
+      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+        isDragging 
+          ? 'border-green-500 bg-green-50' 
+          : 'border-gray-300 hover:border-gray-400'
+      }`}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
+      <div className="space-y-4">
+        <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+          <FileText className="h-6 w-6 text-gray-400" />
+        </div>
+        
+        <div>
+          <p className="text-lg font-medium">
+            Upload your JSON coordinate file
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            Drag and drop, or choose from device storage
+          </p>
+        </div>
 
-                <input
-                  id="file-input"
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                
-                <Button 
-                  onClick={() => document.getElementById('file-input')?.click()}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Choose File
-                </Button>
-              </div>
-            </div>
+        {/* Multiple upload options */}
+        <div className="flex flex-col gap-2">
+          <input
+            id="file-input"
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          
+          <Button 
+            onClick={() => document.getElementById('file-input')?.click()}
+            variant="outline"
+            className="w-full"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Choose from Device Storage
+          </Button>
+          
+          <p className="text-xs text-gray-500">
+            📁 This will access all files on your device (including Downloads, My Files, etc.)
+          </p>
+        </div>
+      </div>
+    </div>
 
-            {fileName && (
-              <div className="mt-4 flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium">Loaded: {fileName}</span>
-                </div>
-                <Button variant="ghost" size="sm" onClick={clearData}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+    {fileName && (
+      <div className="mt-4 flex items-center justify-between p-3 bg-green-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium">Loaded: {fileName}</span>
+        </div>
+        <Button variant="ghost" size="sm" onClick={clearData}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    )}
+  </CardContent>
+</Card>
 
         {/* Error Display */}
         {error && (
