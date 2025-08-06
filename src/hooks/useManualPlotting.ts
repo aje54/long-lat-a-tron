@@ -55,20 +55,15 @@ export const useManualPlotting = () => {
     console.log('🏁 Completed manual plotting mode');
   };
 
-  const exportToJSON = (filename: string = 'boundary-coordinates') => {
-    if (manualCoordinates.length === 0) {
-      alert('No coordinates to export');
-      return;
-    }
-
-    // Convert to simple lat/lng format
+  const exportToJSON = (filename: string) => {
+    if (manualCoordinates.length === 0) return;
+    
+    // Convert to exact same precision as working file (6 decimal places)
     const exportData = manualCoordinates.map(coord => ({
-      lat: coord.lat,
-      lng: coord.lng,
-      accuracy: coord.original.accuracy,
-      timestamp: coord.original.timestamp
+      latitude: parseFloat(coord.lat.toFixed(6)),
+      longitude: parseFloat(coord.lng.toFixed(6))
     }));
-
+    
     const jsonString = JSON.stringify(exportData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -79,9 +74,10 @@ export const useManualPlotting = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
     URL.revokeObjectURL(url);
     
-    console.log(`💾 Exported ${manualCoordinates.length} coordinates to ${filename}.json`);
+    console.log(`📄 Exported ${manualCoordinates.length} coordinates as ${filename}.json`);
   };
 
   return {
