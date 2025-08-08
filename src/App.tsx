@@ -10,17 +10,17 @@ import CoordinateList from './CoordinateList';
 import AreaCalculator from './AreaCalculator';
 import GPSControls from './gpsControls';
 import ManualPlottingControls from './ManualPlottingControls';
+import FieldSurveyControls from './FieldSurveyControls';
 import { useFileUpload, Coordinate } from './hooks/useFileUpload';
 import { useMapControls } from './hooks/useMapControls';
 import { useCoordinateSelection } from './hooks/useCoordinateSelection';
 import { useGPSTracking } from './hooks/useGPSTracking';
 import { usePlotMode } from './hooks/usePlotMode';
 import { useManualPlotting } from './hooks/useManualPlotting';
+import { useFieldSurveyMode } from './hooks/useFieldSurveyMode';
 
 const LandBoundaryPlotter = () => {
-  
   const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || '';
-  console.log('🔑 API Key:', GOOGLE_MAPS_API_KEY ? 'LOADED' : 'EMPTY');
 
   // File upload hook
   const {
@@ -91,6 +91,24 @@ const LandBoundaryPlotter = () => {
     getTotalCount,
   } = usePlotMode(activeCoordinates, coordinates.length > 0 ? setCoordinates : setManualCoordinates);
 
+  // Field Survey Mode hook - NEW
+  const {
+    isActive: isSurveyActive,
+    isNearTarget,
+    distanceToTarget,
+    proximityThreshold,
+    startFieldSurvey,
+    stopFieldSurvey,
+    markTargetAsFound,
+    skipToNextTarget,
+    goToTarget,
+    setProximityThreshold,
+    getCurrentTarget,
+    getProgress,
+    isComplete,
+    foundCoordinates,
+  } = useFieldSurveyMode(activeCoordinates, userLocation, isTracking);
+
   // Handle plotting current GPS location
   const handlePlotCurrentLocation = () => {
     addCurrentLocationAsCoordinate(userLocation);
@@ -108,86 +126,85 @@ const LandBoundaryPlotter = () => {
               Long-Lat-A-Tron
             </CardTitle>
             <CardDescription>
-              V0.1
+              Version 1.5 - Land Boundary Plotter 
             </CardDescription>
           </CardHeader>
         </Card>
 
-{/* File Upload */}
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center gap-2">
-      <Upload className="h-5 w-5" />
-      Upload Coordinates
-    </CardTitle>
-    <CardDescription>
-      Upload a JSON file containing your boundary coordinates or create them using GPS
-    </CardDescription>
-  </CardHeader>
-  <CardContent>
-    <div
-      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-        isDragging 
-          ? 'border-green-500 bg-green-50' 
-          : 'border-gray-300 hover:border-gray-400'
-      }`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    >
-      <div className="space-y-4">
-        <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-          <FileText className="h-6 w-6 text-gray-400" />
-        </div>
-        
-        <div>
-          <p className="text-lg font-medium">
-            Upload your JSON coordinate file
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            Drag and drop, or choose from device storage
-          </p>
-        </div>
+        {/* File Upload */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload Coordinates
+            </CardTitle>
+            <CardDescription>
+              Upload a JSON file containing your boundary coordinates or create them using GPS
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging 
+                  ? 'border-green-500 bg-green-50' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <div className="space-y-4">
+                <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-gray-400" />
+                </div>
+                
+                <div>
+                  <p className="text-lg font-medium">
+                    Upload your JSON coordinate file
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Drag and drop, or choose from device storage
+                  </p>
+                </div>
 
-        {/* Multiple upload options */}
-        <div className="flex flex-col gap-2">
-          <input
-            id="file-input"
-            type="file"
-            accept=".json,application/json"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          
-          <Button 
-            onClick={() => document.getElementById('file-input')?.click()}
-            variant="outline"
-            className="w-full"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Choose from Device Storage
-          </Button>
-          
-          <p className="text-xs text-gray-500">
-            📁 This will access all files on your device (including Downloads, My Files, etc.)
-          </p>
-        </div>
-      </div>
-    </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    id="file-input"
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  
+                  <Button 
+                    onClick={() => document.getElementById('file-input')?.click()}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Choose from Device Storage
+                  </Button>
+                  
+                  <p className="text-xs text-gray-500">
+                    📁 This will access all files on your device (including Downloads, My Files, etc.)
+                  </p>
+                </div>
+              </div>
+            </div>
 
-    {fileName && (
-      <div className="mt-4 flex items-center justify-between p-3 bg-green-50 rounded-lg">
-        <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-medium">Loaded: {fileName}</span>
-        </div>
-        <Button variant="ghost" size="sm" onClick={clearData}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-    )}
-  </CardContent>
-</Card>
+            {fileName && (
+              <div className="mt-4 flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium">Loaded: {fileName}</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={clearData}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Error Display */}
         {error && (
@@ -199,19 +216,42 @@ const LandBoundaryPlotter = () => {
 
         {/* Manual Plotting Controls */}
         <ManualPlottingControls
-  isManualMode={isManualMode}
-  isRecording={isRecording}
-  manualCoordinates={manualCoordinates}
-  userLocation={userLocation}
-  isTracking={isTracking}
-  onStartManualMode={startManualMode}
-  onCompleteManualMode={completeManualMode}
-  onPlotCurrentLocation={handlePlotCurrentLocation}
-  onClearCoordinates={clearManualCoordinates}
-  onRemoveLastCoordinate={removeLastCoordinate}
-  onExportToJSON={exportToJSON}
-  onStartGPSTracking={startTracking}
-/>
+          isManualMode={isManualMode}
+          isRecording={isRecording}
+          manualCoordinates={manualCoordinates}
+          userLocation={userLocation}
+          isTracking={isTracking}
+          onStartManualMode={startManualMode}
+          onCompleteManualMode={completeManualMode}
+          onPlotCurrentLocation={handlePlotCurrentLocation}
+          onClearCoordinates={clearManualCoordinates}
+          onRemoveLastCoordinate={removeLastCoordinate}
+          onExportToJSON={exportToJSON}
+          onStartGPSTracking={startTracking}
+        />
+
+        {/* Field Survey Controls - NEW */}
+        {activeCoordinates.length > 0 && (
+          <FieldSurveyControls
+            coordinates={activeCoordinates}
+            userLocation={userLocation}
+            isGPSTracking={isTracking}
+            isActive={isSurveyActive}
+            isNearTarget={isNearTarget}
+            distanceToTarget={distanceToTarget}
+            proximityThreshold={proximityThreshold}
+            currentTarget={getCurrentTarget()}
+            progress={getProgress()}
+            isComplete={isComplete()}
+            onStartSurvey={startFieldSurvey}
+            onStopSurvey={stopFieldSurvey}
+            onMarkAsFound={markTargetAsFound}
+            onSkipTarget={skipToNextTarget}
+            onGoToTarget={goToTarget}
+            onSetProximityThreshold={setProximityThreshold}
+            onStartGPSTracking={startTracking}
+          />
+        )}
 
         {/* Coordinates Preview */}
         {activeCoordinates.length > 0 && (
@@ -245,16 +285,19 @@ const LandBoundaryPlotter = () => {
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
                           coord.plotted 
                             ? 'bg-green-100 text-green-700' 
-                            : coord.original?.manually_created
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-blue-100 text-blue-700'
+                            : foundCoordinates.has(index)
+                              ? 'bg-blue-100 text-blue-700'
+                              : coord.original?.manually_created
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {coord.plotted ? '✓' : index + 1}
+                          {coord.plotted ? '✓' : foundCoordinates.has(index) ? '🎯' : index + 1}
                         </div>
                         <div>
                           <span className="text-sm font-medium">
                             Point {index + 1} 
                             {coord.plotted && ' (Plotted)'}
+                            {foundCoordinates.has(index) && ' (Found)'}
                             {coord.original?.manually_created && ' (GPS)'}
                           </span>
                           {coord.original?.accuracy && (
@@ -326,9 +369,14 @@ const LandBoundaryPlotter = () => {
                       Recording
                     </Badge>
                   )}
+                  {isSurveyActive && (
+                    <Badge variant="default" className="bg-orange-600 text-xs">
+                      Survey Mode
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
-                  Interactive map with GPS tracking and coordinate recording
+                  Interactive map with GPS tracking, coordinate recording, and field survey navigation
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -386,6 +434,12 @@ const LandBoundaryPlotter = () => {
                       mapType={mapType}
                       onMapReady={handleMapReady}
                       userLocation={userLocation}
+                      surveyMode={{
+                        isActive: isSurveyActive,
+                        currentTarget: getCurrentTarget(),
+                        foundCoordinates: foundCoordinates,
+                        isNearTarget: isNearTarget
+                      }}
                     />
                   </div>
                   
@@ -399,6 +453,11 @@ const LandBoundaryPlotter = () => {
                       {isPlotMode && (
                         <Badge variant="outline" className="text-xs bg-orange-100">
                           🎯 Plot Mode: {getPlottedCount()}/{getTotalCount()} complete
+                        </Badge>
+                      )}
+                      {isSurveyActive && (
+                        <Badge variant="outline" className="text-xs bg-blue-100">
+                          🔍 Survey: {getProgress().completed}/{getProgress().total} found
                         </Badge>
                       )}
                       {isManualMode && (
@@ -419,7 +478,29 @@ const LandBoundaryPlotter = () => {
           <AreaCalculator coordinates={activeCoordinates} />
         )}
 
-        {/* Completion Status */}
+        {/* Field Survey Completion Status */}
+        {activeCoordinates.length > 0 && isSurveyActive && isComplete() && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="text-blue-800 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5" />
+                🎉 Field Survey Complete!
+              </CardTitle>
+              <CardDescription className="text-blue-700">
+                All {getProgress().total} boundary points have been found and physically marked!
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-blue-800 font-medium">
+                  Excellent work! All boundary markers have been physically located and confirmed in the field.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Plot Mode Completion Status */}
         {activeCoordinates.length > 0 && isPlotMode && plotProgress === 100 && (
           <Card className="border-green-200 bg-green-50">
             <CardHeader>
@@ -442,12 +523,12 @@ const LandBoundaryPlotter = () => {
         )}
 
         {/* Next Steps */}
-        {activeCoordinates.length > 0 && !isPlotMode && !isManualMode && (
+        {activeCoordinates.length > 0 && !isPlotMode && !isManualMode && !isSurveyActive && (
           <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
               <CardTitle className="text-blue-800">🎯 Ready for Field Work!</CardTitle>
               <CardDescription className="text-blue-700">
-                Your boundary map is ready. Use GPS tracking to navigate to each point.
+                Your boundary map is ready. Choose your field work mode.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -458,15 +539,15 @@ const LandBoundaryPlotter = () => {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                  Field survey mode for boundary marking
+                </div>
+                <div className="flex items-center gap-2 text-sm text-blue-700">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   Plot mode for field confirmation
                 </div>
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   GPS-based coordinate recording
-                </div>
-                <div className="flex items-center gap-2 text-sm text-blue-700">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                  Export coordinates as JSON
                 </div>
               </div>
             </CardContent>
@@ -487,17 +568,20 @@ const LandBoundaryPlotter = () => {
                 <p className="text-sm font-medium mb-2">Expected JSON format:</p>
                 <pre className="text-sm overflow-x-auto">
 {`[
-  {"lat": 40.7128, "lng": -74.0060},
-  {"lat": 40.7130, "lng": -74.0058},
+  {"latitude": 40.7128, "longitude": -74.0060},
+  {"latitude": 40.7130, "longitude": -74.0058},
   {"latitude": 40.7132, "longitude": -74.0056}
 ]`}
                 </pre>
               </div>
               <p className="text-xs text-gray-600 mt-3">
-                💡 Supports both lat/lng and latitude/longitude field names
+                💡 Supports latitude/longitude coordinate format
               </p>
               <p className="text-xs text-gray-600 mt-1">
                 📍 Or use GPS Recording to walk to each point and record your location
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                🎯 Use Field Survey Mode to navigate to uploaded coordinates and mark boundaries physically
               </p>
             </CardContent>
           </Card>
