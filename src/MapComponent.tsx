@@ -1,12 +1,33 @@
 import React from 'react';
-import { Wrapper, Status } from '@googlemaps/react-wrapper';
+import { Wrapper } from '@googlemaps/react-wrapper';
+
+interface UserLocation {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  timestamp?: number;
+}
 
 interface Coordinate {
   id: number;
   lat: number;
   lng: number;
-  plotted: boolean;
-  original: any;
+  plotted?: boolean;
+  original?: any;
+}
+
+interface SurveyMode {
+  isActive: boolean;
+  currentTarget: {
+    id: number;
+    lat: number;
+    lng: number;
+    index: number;
+    number: number;
+    isFound: boolean;
+  } | null;
+  foundCoordinates: Set<number>;
+  isNearTarget: boolean;
 }
 
 interface MapComponentProps {
@@ -17,73 +38,19 @@ interface MapComponentProps {
   centerCoordinate: number | null;
   mapType: string;
   onMapReady: (map: google.maps.Map) => void;
-  userLocation?: { lat: number; lng: number; accuracy: number } | null;
-  isManualMode?: boolean;
-  onMapClick?: (lat: number, lng: number) => void;
+  userLocation: UserLocation | null;
+  surveyMode?: SurveyMode;
 }
 
-interface MapDisplayProps {
-  coordinates: Coordinate[];
-  selectedCoordinate: number | null;
-  onMarkerClick: (id: number) => void;
-  centerCoordinate: number | null;
-  mapType: string;
-  onMapReady: (map: google.maps.Map) => void;
-  userLocation?: { lat: number; lng: number; accuracy: number } | null;
-  isManualMode?: boolean;
-  onMapClick?: (lat: number, lng: number) => void;
-}
-
-const MapComponent: React.FC<MapComponentProps> = ({ 
-  coordinates, 
-  apiKey, 
-  selectedCoordinate, 
+const Map: React.FC<MapComponentProps> = ({
+  coordinates,
+  selectedCoordinate,
   onMarkerClick,
   centerCoordinate,
   mapType,
   onMapReady,
   userLocation,
-  isManualMode,
-  onMapClick
-}) => {
-  const render = (status: Status) => {
-    switch (status) {
-      case Status.LOADING:
-        return <div className="flex items-center justify-center h-full">Loading map...</div>;
-      case Status.FAILURE:
-        return <div className="flex items-center justify-center h-full text-red-600">Error loading map</div>;
-      case Status.SUCCESS:
-        return (
-          <MapDisplay 
-            coordinates={coordinates} 
-            selectedCoordinate={selectedCoordinate}
-            onMarkerClick={onMarkerClick}
-            centerCoordinate={centerCoordinate}
-            mapType={mapType}
-            onMapReady={onMapReady}
-            userLocation={userLocation}
-            isManualMode={isManualMode}
-            onMapClick={onMapClick}
-          />
-        );
-    }
-  };
-
-  return (
-    <Wrapper apiKey={apiKey} render={render} />
-  );
-};
-
-const MapDisplay: React.FC<MapDisplayProps> = ({ 
-  coordinates, 
-  selectedCoordinate, 
-  onMarkerClick,
-  centerCoordinate,
-  mapType,
-  onMapReady,
-  userLocation,
-  isManualMode,
-  onMapClick
+  surveyMode,
 }) => {
   const mapRef = React.useRef<HTMLDivElement>(null);
   const map = React.useRef<google.maps.Map | null>(null);
@@ -94,53 +61,50 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
 
   // Initialize map
   React.useEffect(() => {
-    if (mapRef.current && !map.current) {
-      console.log('Initializing Google Map');
+    if (!mapRef.current || !window.google || coordinates.length === 0) return;
+
+    if (!map.current) {
+      const bounds = new google.maps.LatLngBounds();
+      coordinates.forEach(coord => {
+        bounds.extend({ lat: coord.lat, lng: coord.lng });
+      });
+
       map.current = new google.maps.Map(mapRef.current, {
-        center: { lat: 0, lng: 0 },
-        zoom: 10,
+        center: bounds.getCenter(),
+        zoom: 18,
         mapTypeId: mapType as google.maps.MapTypeId,
         mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
         zoomControl: true,
         zoomControlOptions: {
           position: google.maps.ControlPosition.RIGHT_CENTER,
         },
-        streetViewControl: false,
-        fullscreenControl: true,
-        fullscreenControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_TOP,
-        },
-        gestureHandling: 'cooperative',
+        scaleControl: true,
       });
-      
+
+      map.current.fitBounds(bounds);
+
+      // Add click listener for map
+      map.current.addListener('click', (event: google.maps.MapMouseEvent) => {
+        console.log('Map clicked at:', event.latLng?.lat(), event.latLng?.lng());
+      });
+
       onMapReady(map.current);
-
-      // Map click listener for manual plotting
-      if (onMapClick) {
-        map.current.addListener('click', (event: google.maps.MapMouseEvent) => {
-          if (isManualMode && event.latLng) {
-            const lat = event.latLng.lat();
-            const lng = event.latLng.lng();
-            onMapClick(lat, lng);
-            console.log('📍 Manual point added:', lat.toFixed(6), lng.toFixed(6));
-          }
-        });
-      }
     }
-  }, [onMapReady, mapType, onMapClick, isManualMode]);
+  }, [coordinates, mapType, onMapReady]);
 
-  // Update map type when changed
+  // Update map type
   React.useEffect(() => {
-    if (map.current) {
-      map.current.setMapTypeId(mapType as google.maps.MapTypeId);
-    }
+    if (!map.current) return;
+    map.current.setMapTypeId(mapType as google.maps.MapTypeId);
   }, [mapType]);
 
   // Update user location marker
   React.useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !window.google) return;
 
-    // Clear existing user marker and accuracy circle
+    // Remove existing user markers
     if (userMarker.current) {
       userMarker.current.setMap(null);
       userMarker.current = null;
@@ -151,142 +115,145 @@ const MapDisplay: React.FC<MapDisplayProps> = ({
     }
 
     if (userLocation) {
-      // Create user location marker
+      // Create user position marker
       userMarker.current = new google.maps.Marker({
         position: { lat: userLocation.lat, lng: userLocation.lng },
         map: map.current,
-        title: 'Your Location',
+        title: `Your Location (±${userLocation.accuracy.toFixed(0)}m)`,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           scale: 8,
           fillColor: '#4285F4',
           fillOpacity: 1,
-          strokeColor: 'white',
-          strokeWeight: 2,
+          strokeWeight: 3,
+          strokeColor: '#FFFFFF',
         },
-        zIndex: 1000,
+        zIndex: 1001,
       });
 
       // Create accuracy circle
       userAccuracyCircle.current = new google.maps.Circle({
         strokeColor: '#4285F4',
-        strokeOpacity: 0.4,
-        strokeWeight: 1,
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
         fillColor: '#4285F4',
-        fillOpacity: 0.1,
+        fillOpacity: 0.15,
         map: map.current,
         center: { lat: userLocation.lat, lng: userLocation.lng },
         radius: userLocation.accuracy,
       });
-
-      console.log('👤 User location marker updated');
     }
   }, [userLocation]);
 
-  // Update markers and polygon when coordinates or selection changes
+  // Update markers with survey mode support
   React.useEffect(() => {
-    if (!map.current || coordinates.length === 0) return;
+    if (!map.current || !window.google) return;
 
-    console.log('Updating markers, selectedCoordinate:', selectedCoordinate);
-
-    // Clear existing markers and polygon
+    // Clear existing markers
     markers.current.forEach(marker => marker.setMap(null));
     markers.current = [];
-    if (polygon.current) {
-      polygon.current.setMap(null);
-      polygon.current = null;
-    }
 
     // Create markers for each coordinate
-    const newMarkers = coordinates.map((coord, index) => {
+    coordinates.forEach((coord, index) => {
+      const isCurrentTarget = Boolean(surveyMode?.isActive && surveyMode.currentTarget?.index === index);
+      const isFound = Boolean(surveyMode?.foundCoordinates?.has(index));
       const isSelected = selectedCoordinate === coord.id;
-      
-      console.log(`Creating marker ${index + 1}, id: ${coord.id}, selected: ${isSelected}`);
-      
-      // Use different colors for manual vs uploaded coordinates
-      const isManual = coord.original?.manually_created;
       
       const marker = new google.maps.Marker({
         position: { lat: coord.lat, lng: coord.lng },
         map: map.current,
-        title: `Point ${index + 1}${isManual ? ' (Manual)' : ''}`,
-        label: {
-          text: (index + 1).toString(),
-          color: isSelected ? 'white' : 'black',
-          fontWeight: 'bold'
-        },
+        title: `Point ${index + 1}${isFound ? ' (Found)' : ''}${isCurrentTarget ? ' (Target)' : ''}${coord.plotted ? ' (Plotted)' : ''}`,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: isSelected ? 15 : 10,
-          fillColor: isSelected 
-            ? '#3B82F6' 
-            : isManual 
-              ? '#8B5CF6' // Purple for manual points
-              : coord.plotted 
-                ? '#10B981' 
-                : '#6B7280',
-          fillOpacity: 1,
-          strokeColor: 'white',
-          strokeWeight: 2,
-        }
+          scale: isCurrentTarget ? 14 : isSelected ? 12 : 10,
+          fillColor: getMarkerColor(coord, isCurrentTarget, isFound),
+          fillOpacity: 0.9,
+          strokeWeight: isCurrentTarget ? 4 : isSelected ? 3 : 2,
+          strokeColor: isCurrentTarget ? '#D97706' : isSelected ? '#1D4ED8' : '#FFFFFF',
+        },
+        zIndex: isCurrentTarget ? 1000 : isSelected ? 500 : isFound ? 100 : 10,
       });
 
-      // Add click listener to marker
       marker.addListener('click', () => {
-        console.log('Marker clicked, coord.id:', coord.id);
         onMarkerClick(coord.id);
       });
 
-      return marker;
+      markers.current.push(marker);
+
+      // Add pulsing animation for current target when near
+      if (isCurrentTarget && surveyMode?.isNearTarget) {
+        marker.setAnimation(google.maps.Animation.BOUNCE);
+        setTimeout(() => {
+          if (marker) marker.setAnimation(null);
+        }, 2000);
+      }
     });
-    markers.current = newMarkers;
+  }, [coordinates, selectedCoordinate, onMarkerClick, surveyMode?.isActive, surveyMode?.currentTarget, surveyMode?.foundCoordinates, surveyMode?.isNearTarget]);
 
-    // Create polygon connecting all points
-    if (coordinates.length > 2) {
-      const polygonPath = coordinates.map(coord => ({
-        lat: coord.lat,
-        lng: coord.lng
-      }));
+  // Helper function to determine marker color
+  const getMarkerColor = (coord: Coordinate, isCurrentTarget: boolean, isFound: boolean): string => {
+    if (isCurrentTarget) return '#F59E0B'; // Orange for current target
+    if (isFound) return '#10B981'; // Green for found points
+    if (coord.plotted) return '#3B82F6'; // Blue for plotted points
+    return '#EF4444'; // Red for unvisited points
+  };
 
+  // Update polygon
+  React.useEffect(() => {
+    if (!map.current || !window.google || coordinates.length < 3) {
+      if (polygon.current) {
+        polygon.current.setMap(null);
+        polygon.current = null;
+      }
+      return;
+    }
+
+    const path = coordinates.map(coord => ({ lat: coord.lat, lng: coord.lng }));
+    const isSurveyActive = Boolean(surveyMode?.isActive);
+
+    if (polygon.current) {
+      polygon.current.setPath(path);
+    } else {
       polygon.current = new google.maps.Polygon({
-        paths: polygonPath,
-        strokeColor: '#3B82F6',
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: '#3B82F6',
-        fillOpacity: 0.2,
+        paths: path,
+        geodesic: true,
+        strokeColor: isSurveyActive ? '#F59E0B' : '#FF0000',
+        strokeOpacity: 1.0,
+        strokeWeight: isSurveyActive ? 3 : 2,
+        fillColor: isSurveyActive ? '#FEF3C7' : '#FF0000',
+        fillOpacity: 0.15,
+        map: map.current,
       });
-      polygon.current.setMap(map.current);
     }
+  }, [coordinates, surveyMode?.isActive]);
 
-    // Fit map to show all coordinates (only on initial load)
-    if (selectedCoordinate === null && centerCoordinate === null) {
-      const bounds = new google.maps.LatLngBounds();
-      coordinates.forEach(coord => {
-        bounds.extend({ lat: coord.lat, lng: coord.lng });
-      });
-      map.current.fitBounds(bounds);
-      
-      // Add padding to the bounds
-      const padding = { top: 50, right: 50, bottom: 50, left: 50 };
-      map.current.fitBounds(bounds, padding);
-    }
-
-  }, [coordinates, selectedCoordinate]);
-
-  // Handle centering on specific coordinate
+  // Center on coordinate
   React.useEffect(() => {
     if (!map.current || centerCoordinate === null) return;
-    
-    console.log('Centering map on coordinate:', centerCoordinate);
+
     const coord = coordinates.find(c => c.id === centerCoordinate);
     if (coord) {
-      map.current.panTo({ lat: coord.lat, lng: coord.lng });
-      map.current.setZoom(18); // Close zoom for centering
+      const position = { lat: coord.lat, lng: coord.lng };
+      map.current.setCenter(position);
+      map.current.setZoom(20);
     }
   }, [centerCoordinate, coordinates]);
 
-  return <div ref={mapRef} className="w-full h-full" />;
+  return <div ref={mapRef} style={{ width: '100%', height: '100%' }} />;
+};
+
+const MapComponent: React.FC<MapComponentProps> = (props) => {
+  const render = (status: any) => {
+    if (status === 'LOADING') return <div>Loading map...</div>;
+    if (status === 'FAILURE') return <div>Error loading map</div>;
+    return <Map {...props} />;
+  };
+
+  return (
+    <Wrapper apiKey={props.apiKey} render={render}>
+      <Map {...props} />
+    </Wrapper>
+  );
 };
 
 export default MapComponent;

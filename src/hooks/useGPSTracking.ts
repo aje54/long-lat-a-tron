@@ -68,10 +68,11 @@ export const useGPSTracking = (coordinates: Coordinate[]) => {
       return;
     }
 
+    // HIGH ACCURACY GPS SETTINGS - Updated for better precision
     const options = {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 1000
+      enableHighAccuracy: true,    // Use GPS + network + sensors
+      timeout: 30000,              // Increased timeout for better accuracy
+      maximumAge: 0                // Always get fresh position (no cache)
     };
 
     const onSuccess = (position: GeolocationPosition) => {
@@ -85,10 +86,18 @@ export const useGPSTracking = (coordinates: Coordinate[]) => {
       setUserLocation(location);
       setTrackingError('');
       
+      // Log accuracy for debugging
+      console.log(`📍 GPS Update: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)} (±${location.accuracy.toFixed(1)}m)`);
+      
+      // Warn if accuracy is poor
+      if (location.accuracy > 10) {
+        console.warn(`⚠️ GPS accuracy is ${location.accuracy.toFixed(1)}m - consider improving conditions`);
+      } else if (location.accuracy <= 3) {
+        console.log(`✅ Excellent GPS accuracy: ±${location.accuracy.toFixed(1)}m`);
+      }
+      
       // Check if near any boundary points
       checkProximity(location.lat, location.lng);
-      
-      console.log('📍 GPS Update:', location.lat.toFixed(6), location.lng.toFixed(6), `±${location.accuracy.toFixed(0)}m`);
     };
 
     const onError = (error: GeolocationPositionError) => {
@@ -98,20 +107,35 @@ export const useGPSTracking = (coordinates: Coordinate[]) => {
           errorMessage = 'GPS permission denied. Please enable location access.';
           break;
         case error.POSITION_UNAVAILABLE:
-          errorMessage = 'GPS position unavailable. Are you indoors?';
+          errorMessage = 'GPS position unavailable. Try moving to an open area with clear sky view.';
           break;
         case error.TIMEOUT:
-          errorMessage = 'GPS timeout. Trying again...';
+          errorMessage = 'GPS timeout. Trying again with high accuracy mode...';
           break;
       }
       setTrackingError(errorMessage);
-      console.error('GPS Error:', errorMessage);
+      console.error('GPS Error:', errorMessage, error);
     };
 
     const id = navigator.geolocation.watchPosition(onSuccess, onError, options);
     setWatchId(id);
     setIsTracking(true);
-    console.log('🛰️ GPS tracking started');
+    console.log('🛰️ High accuracy GPS tracking started');
+    
+    // Also request an immediate high-accuracy position
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log(`📍 Initial high accuracy fix: ±${position.coords.accuracy.toFixed(1)}m`);
+      },
+      (error) => {
+        console.warn('Initial GPS fix failed:', error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
   };
 
   const stopTracking = () => {
